@@ -1,86 +1,121 @@
 const { spawn } = require('child_process');
 
 /**
- * Aegis Automated Reconnaissance & Analysis Script
- * Performs multi-stage scanning and provides intrusion analysis.
+ * AEGIS ADVANCED ADVERSARIAL ENGINE
+ * Multi-stage deep auditing with CVE lookup and service fingerprinting.
  */
 async function runAutoScan(target, socket) {
-    socket.emit('output', `\n[!] INITIALIZING AEGIS AUTO-PILOT FOR: ${target}\n`);
-    socket.emit('output', `[1/3] Phase 1: Rapid Port Discovery...\n`);
+    socket.emit('output', `\n[!] INITIALIZING ADVERSARIAL ENGINE FOR: ${target}\n`);
+    socket.emit('output', `[1/4] PHASE: STEALTH ENUMERATION & FINGERPRINTING...\n`);
 
-    // Stage 1: Port Scan
-    const nmap = spawn('nmap', ['-F', '--open', target], { shell: true });
+    // Advanced Nmap: Service Version, Default Scripts, and Vulners CVE lookup
+    // Using --script=vulners for CVE correlation
+    const args = [
+        '-sV', 
+        '-sC', 
+        '--open', 
+        '--script=vulners', 
+        '-T4', 
+        target
+    ];
+
+    const scanProcess = spawn('nmap', args, { shell: true });
     let scanData = '';
 
-    nmap.stdout.on('data', (data) => {
+    scanProcess.stdout.on('data', (data) => {
         const chunk = data.toString();
         scanData += chunk;
         socket.emit('output', chunk);
     });
 
-    nmap.on('close', async () => {
-        socket.emit('output', `\n[2/3] Phase 2: Vulnerability Surface Analysis...\n`);
+    scanProcess.on('close', async (code) => {
+        if (code !== 0) {
+            socket.emit('output', `\n[!] SCAN_ERROR: Engine failed with code ${code}. Check target accessibility.\n`);
+            socket.emit('command_complete', { code });
+            return;
+        }
+
+        socket.emit('output', `\n[2/4] PHASE: ADVERSARIAL LOGIC & VECTOR CORRELATION...\n`);
         
-        // Simple heuristic analysis for demonstration
-        const findings = analyzeFindings(scanData);
+        const intelligence = analyzeAdvancedFindings(scanData);
         
-        socket.emit('output', `\n------------------------------------------------\n`);
-        socket.emit('output', `[3/3] Phase 3: AEGIS INTELLIGENCE SUMMARY\n`);
-        socket.emit('output', `------------------------------------------------\n`);
+        socket.emit('output', `\n------------------------------------------------------------\n`);
+        socket.emit('output', `[3/4] AEGIS THREAT INTELLIGENCE SUMMARY\n`);
+        socket.emit('output', `------------------------------------------------------------\n`);
         
-        if (findings.length === 0) {
-            socket.emit('output', `[+] No immediate entry points discovered via rapid scan.\n`);
-            socket.emit('output', `[>] Recommendation: Perform a deep service-scan (-sV).\n`);
+        if (intelligence.vectors.length === 0) {
+            socket.emit('output', `[+] Surface appears hardened at first pass.\n`);
+            socket.emit('output', `[>] Next Step: Attempt blind OS fingerprinting (-O) and UDP audit.\n`);
         } else {
-            findings.forEach(f => {
-                socket.emit('output', `[!] POTENTIAL VECTOR: ${f.vector}\n`);
-                socket.emit('output', `    - Risk: ${f.risk}\n`);
-                socket.emit('output', `    - Method: ${f.method}\n\n`);
+            intelligence.vectors.forEach(v => {
+                socket.emit('output', `[✘] VECTOR: ${v.title}\n`);
+                socket.emit('output', `    - SEVERITY: ${v.severity}\n`);
+                socket.emit('output', `    - ATTACK_STRATEGY: ${v.strategy}\n`);
+                socket.emit('output', `    - CVE_REFERENCE: ${v.cve || 'N/A'}\n\n`);
             });
         }
-        
+
+        socket.emit('output', `[4/4] OPERATION COMPLETE. SHUTTING DOWN AEGIS ENGINE.\n`);
         socket.emit('command_complete', { code: 0 });
     });
 }
 
-function analyzeFindings(data) {
-    const findings = [];
-    if (data.includes('21/tcp')) {
-        findings.push({
-            vector: 'FTP Service Detected (Port 21)',
-            risk: 'CRITICAL',
-            method: 'Check for anonymous login or brute-force weak credentials. Investigate for exploit CVE-2011-2523 if vsftpd 2.3.4 is present.'
-        });
-    }
-    if (data.includes('22/tcp')) {
-        findings.push({
-            vector: 'SSH Management (Port 22)',
-            risk: 'MEDIUM',
-            method: 'Verify SSH version. Check for known banner leakage. Test for default root credentials if it is an IoT device.'
-        });
-    }
-    if (data.includes('80/tcp') || data.includes('443/tcp')) {
-        findings.push({
-            vector: 'Web Application Surface (Port 80/443)',
-            risk: 'HIGH',
-            method: 'Perform directory busting (dirb/gobuster). Check for SQLi on parameters and XSS in entry fields. Look for /admin or /.git directories.'
-        });
-    }
-    if (data.includes('445/tcp') || data.includes('139/tcp')) {
-        findings.push({
-            vector: 'SMB File Sharing (Port 445)',
-            risk: 'CRITICAL',
-            method: 'Check for EternalBlue (MS17-010) vulnerability. Attempt null session login to list shares.'
-        });
-    }
-    if (data.includes('3389/tcp')) {
-        findings.push({
-            vector: 'RDP Remote Desktop (Port 3389)',
-            risk: 'HIGH',
-            method: 'Check for BlueKeep (CVE-2019-0708). Attempt brute-force if NLA is disabled.'
-        });
-    }
-    return findings;
+function analyzeAdvancedFindings(data) {
+    const intel = { vectors: [] };
+
+    // Service-Specific Deep Analysis
+    const patterns = [
+        {
+            regex: /21\/tcp.*open.*ftp.*(vsftpd 2\.3\.4)/i,
+            title: 'Backdoored FTP Daemon (vsftpd 2.3.4)',
+            severity: 'CRITICAL',
+            strategy: 'Trigger backdoor with ":)" in username. Execute remote shell on port 6200.',
+            cve: 'CVE-2011-2523'
+        },
+        {
+            regex: /445\/tcp.*open.*microsoft-ds/i,
+            title: 'SMB EternalBlue Candidate',
+            severity: 'CRITICAL',
+            strategy: 'Attempt MS17-010 buffer overflow via doublepulsar. Possible kernel-level RCE.',
+            cve: 'MS17-010'
+        },
+        {
+            regex: /3306\/tcp.*open.*mysql/i,
+            title: 'Exposed Database Instance (MySQL)',
+            severity: 'HIGH',
+            strategy: 'Attempt brute-force for root@localhost. Check for "select load_file" for LFI-to-RCE.',
+            cve: 'OWASP-M1'
+        },
+        {
+            regex: /6379\/tcp.*open.*redis/i,
+            title: 'Unauthenticated Redis Key-Value Store',
+            severity: 'CRITICAL',
+            strategy: 'Write SSH public key to /root/.ssh/authorized_keys via CONFIG command.',
+            cve: 'N/A'
+        },
+        {
+            regex: /8080\/tcp.*open.*http.*(jenkins|tomcat)/i,
+            title: 'Exposed CI/CD Pipeline (Jenkins/Tomcat)',
+            severity: 'HIGH',
+            strategy: 'Access Script Console for Groovy-based shell execution. Check default admin/admin.',
+            cve: 'CVE-2018-1000861'
+        },
+        {
+            regex: /80\/tcp.*open.*http.*Apache/i,
+            title: 'Web Server Fingerprinted (Apache)',
+            severity: 'MEDIUM',
+            strategy: 'Run Nikto/Dirsearch to find .env or .git directories. Check for Log4j vulnerability if Java headers present.',
+            cve: 'CWE-200'
+        }
+    ];
+
+    patterns.forEach(p => {
+        if (p.regex.test(data)) {
+            intel.vectors.push(p);
+        }
+    });
+
+    return intel;
 }
 
 module.exports = { runAutoScan };

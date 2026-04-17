@@ -101,6 +101,7 @@ function App() {
               onChange={(e) => setTool(e.target.value)}
               className="w-full bg-black border border-aegis-700 rounded p-3 text-sm focus:border-aegis-cyan outline-none appearance-none"
             >
+              <option value="autopilot">⚡ Auto-Pilot (Scan + Analysis)</option>
               <option value="nmap">Network Mapper (Nmap)</option>
               <option value="ping">ICMP Echo (Ping)</option>
               <option value="tracert">Traceroute</option>

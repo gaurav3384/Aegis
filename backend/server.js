@@ -5,6 +5,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 const fs = require('fs');
 const path = require('path');
+const { runAutoScan } = require('./scripts/autoPilot');
 
 const app = express();
 const server = http.createServer(app);
@@ -32,6 +33,11 @@ io.on('connection', (socket) => {
     console.log('Client connected to Aegis Socket');
 
     socket.on('execute_command', ({ tool, target, params }) => {
+        if (tool === 'autopilot') {
+            runAutoScan(target, socket);
+            return;
+        }
+
         if (!ALLOWED_TOOLS.includes(tool)) {
             socket.emit('output', 'Error: Unauthorized tool.\n');
             return;
@@ -42,7 +48,6 @@ io.on('connection', (socket) => {
 
         socket.emit('output', `[+] Initializing ${tool} ${params} ${sanitizedTarget}...\n`);
 
-        // Use spawn for real-time streaming
         const child = spawn(tool, [...sanitizedParams, sanitizedTarget], { shell: true });
 
         child.stdout.on('data', (data) => {

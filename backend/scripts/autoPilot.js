@@ -1,121 +1,116 @@
 const { spawn } = require('child_process');
 
 /**
- * AEGIS ADVANCED ADVERSARIAL ENGINE
- * Multi-stage deep auditing with CVE lookup and service fingerprinting.
+ * AEGIS OWASP COMPLIANCE ENGINE
+ * Integrates automated web auditing mapped to OWASP Top 10 categories.
  */
 async function runAutoScan(target, socket) {
-    socket.emit('output', `\n[!] INITIALIZING ADVERSARIAL ENGINE FOR: ${target}\n`);
-    socket.emit('output', `[1/4] PHASE: STEALTH ENUMERATION & FINGERPRINTING...\n`);
+    socket.emit('output', `\n[!] INITIALIZING OWASP COMPLIANCE AUDIT FOR: ${target}\n`);
+    
+    // Phase 1: Service Discovery
+    socket.emit('output', `[1/5] PHASE: ADVERSARIAL RECONNAISSANCE...\n`);
+    const nmapBase = await runProcess('nmap', ['-sV', '--open', target], socket);
 
-    // Advanced Nmap: Service Version, Default Scripts, and Vulners CVE lookup
-    // Using --script=vulners for CVE correlation
-    const args = [
-        '-sV', 
-        '-sC', 
-        '--open', 
-        '--script=vulners', 
-        '-T4', 
-        target
-    ];
+    // Phase 2: Web Surface Analysis (OWASP A01, A05)
+    if (nmapBase.includes('80/tcp') || nmapBase.includes('443/tcp') || nmapBase.includes('8080/tcp')) {
+        socket.emit('output', `\n[2/5] PHASE: OWASP WEB AUDIT (A01:2021, A05:2021)...\n`);
+        // Running focused OWASP scripts: Enum, Vuln, Methods, Headers
+        await runProcess('nmap', [
+            '-p80,443,8080',
+            '--script=http-enum,http-methods,http-security-headers,http-vuln-*',
+            target
+        ], socket);
+    }
 
-    const scanProcess = spawn('nmap', args, { shell: true });
-    let scanData = '';
+    // Phase 3: Infrastructure Vulnerabilities (OWASP A06)
+    socket.emit('output', `\n[3/5] PHASE: INFRASTRUCTURE AUDIT (A06:2021)...\n`);
+    const vulnData = await runProcess('nmap', ['--script=vulners', '-sV', target], socket);
 
-    scanProcess.stdout.on('data', (data) => {
-        const chunk = data.toString();
-        scanData += chunk;
-        socket.emit('output', chunk);
-    });
+    socket.emit('output', `\n[4/5] PHASE: AEGIS INTELLIGENCE CORRELATION...\n`);
+    const intelligence = analyzeOWASPFindings(nmapBase + vulnData);
 
-    scanProcess.on('close', async (code) => {
-        if (code !== 0) {
-            socket.emit('output', `\n[!] SCAN_ERROR: Engine failed with code ${code}. Check target accessibility.\n`);
-            socket.emit('command_complete', { code });
-            return;
-        }
+    socket.emit('output', `\n------------------------------------------------------------\n`);
+    socket.emit('output', `[5/5] AEGIS // OWASP COMPLIANCE SUMMARY\n`);
+    socket.emit('output', `------------------------------------------------------------\n`);
 
-        socket.emit('output', `\n[2/4] PHASE: ADVERSARIAL LOGIC & VECTOR CORRELATION...\n`);
-        
-        const intelligence = analyzeAdvancedFindings(scanData);
-        
-        socket.emit('output', `\n------------------------------------------------------------\n`);
-        socket.emit('output', `[3/4] AEGIS THREAT INTELLIGENCE SUMMARY\n`);
-        socket.emit('output', `------------------------------------------------------------\n`);
-        
-        if (intelligence.vectors.length === 0) {
-            socket.emit('output', `[+] Surface appears hardened at first pass.\n`);
-            socket.emit('output', `[>] Next Step: Attempt blind OS fingerprinting (-O) and UDP audit.\n`);
-        } else {
-            intelligence.vectors.forEach(v => {
-                socket.emit('output', `[✘] VECTOR: ${v.title}\n`);
-                socket.emit('output', `    - SEVERITY: ${v.severity}\n`);
-                socket.emit('output', `    - ATTACK_STRATEGY: ${v.strategy}\n`);
-                socket.emit('output', `    - CVE_REFERENCE: ${v.cve || 'N/A'}\n\n`);
-            });
-        }
+    if (intelligence.length === 0) {
+        socket.emit('output', `[+] No critical OWASP Top 10 violations detected.\n`);
+    } else {
+        intelligence.forEach(v => {
+            socket.emit('output', `[!] OWASP_${v.category}: ${v.title}\n`);
+            socket.emit('output', `    - RISK: ${v.severity}\n`);
+            socket.emit('output', `    - DESCRIPTION: ${v.desc}\n`);
+            socket.emit('output', `    - FIX: ${v.remediation}\n\n`);
+        });
+    }
 
-        socket.emit('output', `[4/4] OPERATION COMPLETE. SHUTTING DOWN AEGIS ENGINE.\n`);
-        socket.emit('command_complete', { code: 0 });
+    socket.emit('command_complete', { code: 0 });
+}
+
+async function runProcess(cmd, args, socket) {
+    return new Promise((resolve) => {
+        const child = spawn(cmd, args, { shell: true });
+        let buffer = '';
+        child.stdout.on('data', (data) => {
+            const chunk = data.toString();
+            buffer += chunk;
+            socket.emit('output', chunk);
+        });
+        child.on('close', () => resolve(buffer));
     });
 }
 
-function analyzeAdvancedFindings(data) {
-    const intel = { vectors: [] };
-
-    // Service-Specific Deep Analysis
-    const patterns = [
+function analyzeOWASPFindings(data) {
+    const findings = [];
+    
+    const owaspMap = [
         {
-            regex: /21\/tcp.*open.*ftp.*(vsftpd 2\.3\.4)/i,
-            title: 'Backdoored FTP Daemon (vsftpd 2.3.4)',
-            severity: 'CRITICAL',
-            strategy: 'Trigger backdoor with ":)" in username. Execute remote shell on port 6200.',
-            cve: 'CVE-2011-2523'
-        },
-        {
-            regex: /445\/tcp.*open.*microsoft-ds/i,
-            title: 'SMB EternalBlue Candidate',
-            severity: 'CRITICAL',
-            strategy: 'Attempt MS17-010 buffer overflow via doublepulsar. Possible kernel-level RCE.',
-            cve: 'MS17-010'
-        },
-        {
-            regex: /3306\/tcp.*open.*mysql/i,
-            title: 'Exposed Database Instance (MySQL)',
+            test: /http-methods.*(PUT|DELETE|TRACE)/i,
+            category: 'A01:2021',
+            title: 'Broken Access Control (Dangerous HTTP Methods)',
             severity: 'HIGH',
-            strategy: 'Attempt brute-force for root@localhost. Check for "select load_file" for LFI-to-RCE.',
-            cve: 'OWASP-M1'
+            desc: 'Dangerous HTTP methods like PUT or DELETE are enabled, allowing unauthorized file manipulation.',
+            remediation: 'Disable unnecessary HTTP methods in the web server configuration.'
         },
         {
-            regex: /6379\/tcp.*open.*redis/i,
-            title: 'Unauthenticated Redis Key-Value Store',
+            test: /sql-injection|sqli/i,
+            category: 'A03:2021',
+            title: 'Injection (SQLi)',
             severity: 'CRITICAL',
-            strategy: 'Write SSH public key to /root/.ssh/authorized_keys via CONFIG command.',
-            cve: 'N/A'
+            desc: 'Potential SQL injection point detected via automated script auditing.',
+            remediation: 'Use parameterized queries and implement strict input validation.'
         },
         {
-            regex: /8080\/tcp.*open.*http.*(jenkins|tomcat)/i,
-            title: 'Exposed CI/CD Pipeline (Jenkins/Tomcat)',
-            severity: 'HIGH',
-            strategy: 'Access Script Console for Groovy-based shell execution. Check default admin/admin.',
-            cve: 'CVE-2018-1000861'
-        },
-        {
-            regex: /80\/tcp.*open.*http.*Apache/i,
-            title: 'Web Server Fingerprinted (Apache)',
+            test: /http-security-headers.*missing/i,
+            category: 'A05:2021',
+            title: 'Security Misconfiguration (Missing Headers)',
             severity: 'MEDIUM',
-            strategy: 'Run Nikto/Dirsearch to find .env or .git directories. Check for Log4j vulnerability if Java headers present.',
-            cve: 'CWE-200'
+            desc: 'Security headers like HSTS, CSP, or X-Content-Type-Options are missing.',
+            remediation: 'Implement recommended security headers to prevent XSS and Clickjacking.'
+        },
+        {
+            test: /CVE-2021-44228|log4shell/i,
+            category: 'A06:2021',
+            title: 'Vulnerable and Outdated Components (Log4Shell)',
+            severity: 'CRITICAL',
+            desc: 'Remote Code Execution vulnerability in Log4j detected.',
+            remediation: 'Patch Log4j to the latest version immediately.'
+        },
+        {
+            test: /3306\/tcp.*open.*mysql|5432\/tcp.*open.*postgresql/i,
+            category: 'A07:2021',
+            title: 'Identification and Authentication Failures (Exposed DB)',
+            severity: 'HIGH',
+            desc: 'Database port exposed to the public internet.',
+            remediation: 'Restrict database access to localhost or internal VPN IPs only.'
         }
     ];
 
-    patterns.forEach(p => {
-        if (p.regex.test(data)) {
-            intel.vectors.push(p);
-        }
+    owaspMap.forEach(m => {
+        if (m.test.test(data)) findings.push(m);
     });
 
-    return intel;
+    return findings;
 }
 
 module.exports = { runAutoScan };
